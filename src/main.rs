@@ -1,9 +1,10 @@
+mod ast;
+mod errors;
+mod lexer;
+
 use std::{env, path, process, error::Error, fs};
 use std::io::{self, Write};
 use exitcode;
-
-mod errors;
-mod lexer;
 
 fn run(code: String) -> Result<(), Box<dyn Error>> {
 
