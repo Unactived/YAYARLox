@@ -1,24 +1,40 @@
 mod ast;
 mod errors;
+mod interpreter;
 mod lexer;
+mod parser;
 
-use std::{env, path, process, error::Error, fs};
+use std::{env, path, process, fs};
 use std::io::{self, Write};
-use exitcode;
 
-fn run(code: String) -> Result<(), Box<dyn Error>> {
+use interpreter::types;
+
+#[allow(unused_must_use)]
+fn run<'a>(code: String) -> Result<types, &'a str> {
 
     let (tokens, had_error) = lexer::scan(code);
 
+    // println!("Tokens:");
+    // for token in &tokens {
+    //     println!("{:?}", token.class);
+    // }
+    // println!();
+
     if had_error {
-        eprintln!("There was an error");
+        return Err("Aborting due to error while lexing.");
     }
 
-    for token in &tokens {
-        println!("{:?}", token.class);
+    let (statements, had_error) = parser::parse(tokens);
+
+    // println!("{:#?}", statements);
+
+    if had_error {
+        return Err("Aborting due to error while parsing.");
     }
 
-    Ok(())
+    let expr = interpreter::interpret(statements).unwrap_or(types::nil);
+
+    Ok(expr)
 }
 
 fn run_file(file_path: path::PathBuf) {
@@ -29,12 +45,14 @@ fn run_file(file_path: path::PathBuf) {
         panic!("couldn't read {}: {}", display, error)
     });
 
-    run(code).unwrap_or_else(|_error| {
+    run(code).unwrap_or_else(|error| {
+        eprintln!("{}", error);
         process::exit(exitcode::DATAERR);
     });
 
 }
 
+#[allow(unused_must_use)]
 fn run_prompt() {
 
     loop {
@@ -47,9 +65,14 @@ fn run_prompt() {
             .read_line(&mut line)
             .expect("Failed to read line");
 
-        run(line).unwrap_or_else(|_error| {
-            process::exit(exitcode::DATAERR);
-        });
+        // errors were already handled at this point,
+        // we default the expression to nil so it isn't
+        // printed
+        let expr = run(line).unwrap_or(types::nil);
+
+        if expr != types::nil {
+            println!("{:?}", expr);
+        }
     }
 
 }

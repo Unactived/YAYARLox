@@ -2,42 +2,34 @@
 
 use crate::lexer::Token;
 
-#[macro_export]
-macro_rules! make_struct {
-    ( $name:ident, $( $field:ident : $type:ident ),* ) => {
-        //#[derive(Debug)]
-        pub struct $name {
-
-        $(
-            $field: $type,
-        )*
-
-        }
-    };
-}
-
-/// $expr: expression name
-#[macro_export]
 macro_rules! define_ast {
-    ( $( $expr:ident $( $type:ident $name:ident )* ),* ) => {
+    ( $Category:ident := 
+        $( $expr:ident : $( $type:ident $name:ident ),* );*
+    ) => {
 
+        #[derive(Debug)]
+        pub enum $Category {
         $(
-        make_struct!($expr, $( $name : $type ),*);
-        )*
-
-        //#[derive(Debug)]
-        pub enum Expr {
-            Expr(Box<Expr>),
-        $(
-            $expr(Box<$expr>),
+            $expr(
+                $(Box<$type>,)*
+            ),
         )*
         }
     };
 }
 
 define_ast!(
-    Binary Expr left Token operator Expr right,
-    Grouping Expr expression,
-    Literal Token value,
-    Unary  Token operator Expr right
+    Expr :=
+        Binary   : Expr left, Token operator, Expr right ;
+        Grouping : Expr expr ;
+        Literal  : Token value ;
+        Unary    : Token operator, Expr right ;
+        Variable : Token name
+);
+
+define_ast!(
+    Stmt :=
+        Expression : Expr expression ;
+        Print      : Expr expression ;
+        Var        : Token name, Expr initializer
 );

@@ -198,7 +198,7 @@ fn string(state: &mut Lexer) -> Result<TokenVariant, ()> {
     // closing `"`
     state.current += 1;
 
-    let literal = state.source[state.start+1..state.current-1].into_iter().collect();
+    let literal = state.source[state.start+1..state.current].into_iter().collect();
 
     Ok(TokenVariant::String(literal))
 }
@@ -242,7 +242,7 @@ fn identifier(state: &mut Lexer) -> String {
     state.source[state.start..=state.current].into_iter().collect()
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum TokenVariant {
     // Single-character tokens.
     LeftParen, RightParen, LeftBrace, RightBrace,
@@ -264,15 +264,15 @@ pub enum TokenVariant {
     Eof
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct Token {
     pub class: TokenVariant,
-    lexeme: String,
-    line: usize,
+    pub lexeme: String,
+    pub line: usize,
 }
 
 impl Token {
-    fn new(class: TokenVariant, lexeme: String, line: usize) -> Token {
+    pub fn new(class: TokenVariant, lexeme: String, line: usize) -> Token {
         Token {
             class,
             lexeme,

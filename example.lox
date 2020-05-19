@@ -1,0 +1,15 @@
+print "This is hello.lox";
+
+print "Multi";print "Line";
+
+print (1+2)*3 != 1+2*3;
+"This is dead code";
+
+var forty_two = (3+3) * 8 - 6;
+var hello = "Hello, ";
+var world = "World !";
+
+print hello + world;
+print "The answer is"; print forty_two;
+
+print "The end";
