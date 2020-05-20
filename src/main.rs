@@ -7,10 +7,10 @@ mod parser;
 use std::{env, path, process, fs};
 use std::io::{self, Write};
 
-use interpreter::types;
+use interpreter::{Interpreter, types};
 
 #[allow(unused_must_use)]
-fn run<'a>(code: String) -> Result<types, &'a str> {
+fn lex_and_parse<'a>(code: String) -> Result<Vec<ast::Stmt>, &'a str> {
 
     let (tokens, had_error) = lexer::scan(code);
 
@@ -32,9 +32,7 @@ fn run<'a>(code: String) -> Result<types, &'a str> {
         return Err("Aborting due to error while parsing.");
     }
 
-    let expr = interpreter::interpret(statements).unwrap_or(types::nil);
-
-    Ok(expr)
+    Ok(statements)
 }
 
 fn run_file(file_path: path::PathBuf) {
@@ -42,11 +40,18 @@ fn run_file(file_path: path::PathBuf) {
     let display = file_path.display();
 
     let code = fs::read_to_string(&file_path).unwrap_or_else(|error| {
-        panic!("couldn't read {}: {}", display, error)
+        eprintln!("Couldn't read {}: {}", display, error);
+        process::exit(exitcode::NOINPUT);
     });
 
-    run(code).unwrap_or_else(|error| {
+    let mut interpreter = Interpreter::new();
+
+    let statements = lex_and_parse(code).unwrap_or_else(|error| {
         eprintln!("{}", error);
+        process::exit(exitcode::DATAERR);
+    });
+
+    interpreter.interpret(statements).unwrap_or_else(|()| {
         process::exit(exitcode::DATAERR);
     });
 
@@ -54,6 +59,8 @@ fn run_file(file_path: path::PathBuf) {
 
 #[allow(unused_must_use)]
 fn run_prompt() {
+
+    let mut interpreter = Interpreter::new();
 
     loop {
         print!("> ");
@@ -68,7 +75,15 @@ fn run_prompt() {
         // errors were already handled at this point,
         // we default the expression to nil so it isn't
         // printed
-        let expr = run(line).unwrap_or(types::nil);
+
+        let statements = lex_and_parse(line);
+
+        let statements = match statements {
+            Ok(stmts) => stmts,
+            Err(_) => continue,
+        };
+
+        let expr = interpreter.interpret(statements).unwrap_or(types::nil);
 
         if expr != types::nil {
             println!("{:?}", expr);

@@ -78,12 +78,22 @@ impl Parser {
         }
     }
 
+    fn consume_still(&mut self, variant: TokenVariant, message: &str) {
+        if self.get().class != variant {
+            self.error(message);
+        }
+    }
+
     // Context
     // Boundary checking should be done beforehand
 
     fn peek(&self) -> &Token {
         &self.tokens[self.current+1]
     }
+
+    // fn previous(&self) -> &Token {
+    //     &self.tokens[self.current+1]
+    // }
 
     fn get(&self) -> &Token {
         &self.tokens[self.current]
@@ -146,6 +156,9 @@ impl Parser {
         if self.fit_still(vec![TokenVariant::Print]) {
             self.advance();
             self.print_stmt()
+        } else if self.fit_still(vec![TokenVariant::LeftBrace]) {
+            self.advance();
+            self.block_stmt()
         } else {
             self.expr_stmt()
         }
@@ -160,6 +173,19 @@ impl Parser {
         Stmt::Expression(Box::new(expr))
     }
 
+    fn block_stmt(&mut self) -> Stmt {
+        let mut statements = Vec::new();
+
+        while !self.is_over() && !self.fit_still(vec![TokenVariant::RightBrace]) {
+            statements.push(self.declaration());
+            self.advance();
+        }
+
+        self.consume_still(TokenVariant::RightBrace, "Expect '}' after block.");
+
+        Stmt::Block(Box::new(statements))
+    }
+
     fn print_stmt(&mut self) -> Stmt {
         let value = self.expression();
 
@@ -171,7 +197,27 @@ impl Parser {
     // Expression grammar
 
     fn expression(&mut self) -> Expr {
-        self.equality()
+        self.assignment()
+    }
+
+    fn assignment(&mut self) -> Expr {
+
+        let expr = self.equality();
+
+        if self.fit(vec![TokenVariant::Equal]) {
+            let equal_token = self.get().clone();
+            self.advance();
+
+            let value = self.assignment();
+
+            match expr {
+                Expr::Variable(name) => return Expr::Assign(name, Box::new(value)),
+
+                _ => errors::report(equal_token.line, &equal_token.lexeme, "Invalid assignment target."),
+            }
+        }
+
+        expr
     }
 
     // Recursive binary expression chain

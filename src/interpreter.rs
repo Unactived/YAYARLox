@@ -41,33 +41,92 @@ impl fmt::Debug for types {
 }
 
 
-pub fn interpret(statements: Vec<Stmt>) -> Result<types, ()> {
+struct Environment {
+    // leads to the enclosing Environment, or is None if
+    // it is the global scope
+    enclosing: Option<Box<Environment>>,
 
-    let mut interpreter = Interpreter { environment: HashMap::new() };
-
-    let mut last = types::nil;
-
-    for stmt in statements.into_iter() {
-        last = interpreter.execute(stmt)?;
-    }
-
-    Ok(last)
-}
-
-pub struct Interpreter {
     // Using String instead of &str is not just "simpler" but also
     // seems mandatory for mutable variables, which is about all variables.
     // We don't want to hold references to the lexemes of past values.
-    pub environment: HashMap<String, types>,
+    scope: HashMap<String, types>
+}
+
+impl Environment {
+
+    // fn new(environ: Environment) -> Environment
+
+    fn define(&mut self, name: String, initializer: types) {
+        self.scope.insert(
+            name,
+            initializer
+        );
+    }
+
+    fn assign(&mut self, name: Token, value: types) -> Result<types, ()> {
+        if self.scope.contains_key(&name.lexeme) {
+            self.scope.insert(
+                name.lexeme,
+                value.clone()
+            );
+            Ok(value)
+        } else if let Some(env) = &mut self.enclosing {
+            (*env).assign(name, value)
+        } else {
+            error(&name, &format!("Undefined variable '{}'.", &name.lexeme));
+            Err(())
+        }
+    }
+
+    fn get(&self, name: &str) -> Result<types, ()> {
+
+        match self.scope.get(name) {
+            Some(val) => Ok((*val).clone()),
+            None => {
+                if let Some(env) = &self.enclosing {
+                    return (*env).get(name);
+                } else {
+                    Err(())
+                }
+            }
+        }
+    }
+
+}
+
+pub struct Interpreter {
+
+    environment: Environment
 }
 
 impl Interpreter {
 
+    pub fn new() -> Self {
+        Interpreter {
+            environment: Environment {
+                enclosing: None,
+                scope: HashMap::new(),
+            }
+        }
+    }
+
+    pub fn interpret(&mut self, statements: Vec<Stmt>) -> Result<types, ()> {
+
+        let mut last = types::nil;
+
+        for stmt in statements.into_iter() {
+            last = self.execute(stmt)?;
+        }
+
+        Ok(last)
+    }
+
     // Interpreting
 
-    fn execute(self: &mut Interpreter, stmt: Stmt) -> Result<types, ()> {
+    fn execute(&mut self, stmt: Stmt) -> Result<types, ()> {
 
         match stmt {
+            Stmt::Block(_)      => self.execute_block(stmt),
             Stmt::Expression(_) => self.execute_expr(stmt),
             Stmt::Print(_)      => self.execute_print(stmt),
             Stmt::Var(_,_)      => self.execute_var(stmt),
@@ -75,8 +134,44 @@ impl Interpreter {
 
     }
 
+    #[allow(unused_must_use)]
+    fn execute_block(&mut self, stmt: Stmt) -> Result<types, ()> {
+        if let Stmt::Block(statements) = stmt {
+
+            // let previous = self.environment;
+
+            // self.environment = Environment {
+            //     enclosing: Some(Box::new(previous)),
+            //     scope: HashMap::new(),
+            // };
+
+            self.environment = Environment {
+                enclosing: Some(Box::new(
+                    std::mem::replace(&mut self.environment, Environment { enclosing: None, scope: HashMap::new() }))
+                ),
+                scope: HashMap::new(),
+            };
+
+            self.execution_bubble(*statements);
+
+            let current = self.environment.enclosing.take().unwrap();
+            self.environment = *current;
+
+        }
+
+        Ok(types::nil)
+    }
+
+    fn execution_bubble(&mut self, statements: Vec<Stmt>) -> Result<types, ()> {
+        for stmt in statements.into_iter() {
+            self.execute(stmt)?;
+        }
+
+        Ok(types::nil)
+    }
+
     // #[allow(unused_must_use)]
-    fn execute_expr(self: &mut Interpreter, stmt: Stmt) -> Result<types, ()> {
+    fn execute_expr(&mut self, stmt: Stmt) -> Result<types, ()> {
         if let Stmt::Expression(expr) = stmt {
             self.evaluate(*expr)
         } else {
@@ -86,7 +181,7 @@ impl Interpreter {
         // Ok(types::nil)
     }
 
-    fn execute_print(self: &mut Interpreter, stmt: Stmt) -> Result<types, ()> {
+    fn execute_print(&mut self, stmt: Stmt) -> Result<types, ()> {
         if let Stmt::Print(expr) = stmt {
             let value = self.evaluate(*expr)?;
             println!("{}", value);
@@ -95,22 +190,20 @@ impl Interpreter {
         Ok(types::nil)
     }
 
-    fn execute_var(self: &mut Interpreter, stmt: Stmt) -> Result<types, ()> {
+    fn execute_var(&mut self, stmt: Stmt) -> Result<types, ()> {
         if let Stmt::Var(name, initializer) = stmt {
             let name = name.lexeme;
             let initializer = self.evaluate(*initializer)?;
 
-            self.environment.insert(
-                name,
-                initializer,
-            );
+            self.environment.define(name, initializer);
         }
 
         Ok(types::nil)
     }
 
-    fn evaluate(self: &Interpreter, expression: Expr) -> Result<types, ()> {
+    fn evaluate(&mut self, expression: Expr) -> Result<types, ()> {
         match expression {
+            Expr::Assign(_,_)   => self.evaluate_assign(expression),
             Expr::Literal(_)    => self.evaluate_literal(expression),
             Expr::Grouping(_)   => self.evaluate_parentheses(expression),
             Expr::Unary(_,_)    => self.evaluate_unary(expression),
@@ -119,7 +212,18 @@ impl Interpreter {
         }
     }
 
-    fn evaluate_literal(self: &Interpreter, expression: Expr) -> Result<types, ()> {
+    fn evaluate_assign(&mut self, expression: Expr) -> Result<types, ()> {
+        if let Expr::Assign(name, value) = expression {
+            let (name, value) = (*name, self.evaluate(*value)?);
+
+            self.environment.assign(name, value)
+
+        } else {
+            panic!("expression should be an Assign");
+        }
+    }
+
+    fn evaluate_literal(&self, expression: Expr) -> Result<types, ()> {
         if let Expr::Literal(val) = expression {
             let boxed = val;
 
@@ -137,7 +241,7 @@ impl Interpreter {
         }
     }
 
-    fn evaluate_parentheses(self: &Interpreter, expression: Expr) -> Result<types, ()> {
+    fn evaluate_parentheses(&mut self, expression: Expr) -> Result<types, ()> {
         if let Expr::Grouping(val) = expression {
             Ok(self.evaluate(*val)?)
         } else {
@@ -145,7 +249,7 @@ impl Interpreter {
         }
     }
 
-    fn evaluate_unary(self: &Interpreter, expression: Expr) -> Result<types, ()> {
+    fn evaluate_unary(&mut self, expression: Expr) -> Result<types, ()> {
         if let Expr::Unary(operator, val) = expression {
 
             let operator = *operator;
@@ -167,7 +271,7 @@ impl Interpreter {
         }
     }
 
-    fn evaluate_binary(self: &Interpreter, expression: Expr) -> Result<types, ()> {
+    fn evaluate_binary(&mut self, expression: Expr) -> Result<types, ()> {
         if let Expr::Binary(left, operator, right) = expression {
 
             let (left, right) = (self.evaluate(*left)?, self.evaluate(*right)?);
@@ -232,22 +336,21 @@ impl Interpreter {
         }
     }
 
-    fn get_variable(self: &Interpreter, expression: Expr) -> Result<types, ()> {
+    fn get_variable(&self, expression: Expr) -> Result<types, ()> {
         if let Expr::Variable(token) = expression {
 
             let original = token.clone();
 
             match token.class {
                 TokenVariant::Identifier(ident) => {
+                    let attempt = self.environment.get(&ident);
 
-                    match self.environment.get(&ident) {
-                        Some(val) => Ok((*val).clone()),
-                        None => {
-                            error(&original, &format!("Variable '{}' doesn't exist.", &ident));
-                            Err(())
-                        }
+                    if let Ok(_) = attempt {
+                        attempt
+                    } else {
+                        error(&original, &format!("Variable '{}' doesn't exist.", &ident));
+                        Err(())
                     }
-
                 },
 
                 _ => panic!("Variable should hold an Identifier"), 
