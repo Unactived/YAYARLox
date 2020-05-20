@@ -1,4 +1,5 @@
-print "This is hello.lox";
+print "This is example.lox";
+print "";
 
 var a = 4;
 
@@ -10,6 +11,7 @@ print a = 8;
 }
 
 print a;
+print "";
 
 var b;
 
@@ -22,17 +24,31 @@ print b;
 }
 
 print b;
+print "";
 
-print "Multi";print "Line";
+if (1+1 < 1)
+	print "1+1 < 1";
+else
+	print "1+1 >= 1";
 
-print (1+2)*3 != 1+2*3;
 "This is dead code";
 
 var forty_two = (3+3) * 8 - 6;
 var hello = "Hello, ";
 var world = "World !";
 
+if (3 == 1+1+1)
+	print "3 == 1+1+1 !!!";
+
+print "";
+
+print "hi" or 2; // "hi"
+print nil or "yes"; // "yes"
+
+print "hi" and 2; // 2
+print nil and "yes"; // nil
+
+print "";
+
 print hello + world;
 print "The answer is"; print forty_two;
-
-print "The end";
