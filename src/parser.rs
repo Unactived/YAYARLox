@@ -153,7 +153,10 @@ impl Parser {
 
     fn statement(&mut self) -> Stmt {
 
-        if self.fit_still(vec![TokenVariant::Print]) {
+        if self.fit_still(vec![TokenVariant::If]) {
+            self.advance();
+            self.if_stmt()
+        } else if self.fit_still(vec![TokenVariant::Print]) {
             self.advance();
             self.print_stmt()
         } else if self.fit_still(vec![TokenVariant::LeftBrace]) {
@@ -171,6 +174,29 @@ impl Parser {
         self.consume(TokenVariant::Semicolon, "Expect ';' after expression.");
 
         Stmt::Expression(Box::new(expr))
+    }
+
+    fn if_stmt(&mut self) -> Stmt {
+
+        self.consume_still(TokenVariant::LeftParen, "Expect '(' after 'if'.");
+
+        let condition = self.expression();
+
+        self.consume_still(TokenVariant::RightParen, "Expect ')' after if condition.");
+
+        self.advance();
+
+        let then_branch = self.statement();
+
+        let else_branch = if !self.is_over() && self.fit(vec![TokenVariant::Else]) {
+            self.advance();
+            self.statement()
+        } else {
+            Stmt::Block(Box::new(Vec::new()))
+        };
+
+        Stmt::If(Box::new(condition), Box::new(then_branch), Box::new(else_branch))
+
     }
 
     fn block_stmt(&mut self) -> Stmt {

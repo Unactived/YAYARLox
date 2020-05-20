@@ -128,6 +128,7 @@ impl Interpreter {
         match stmt {
             Stmt::Block(_)      => self.execute_block(stmt),
             Stmt::Expression(_) => self.execute_expr(stmt),
+            Stmt::If(_,_,_)     => self.execute_if(stmt),
             Stmt::Print(_)      => self.execute_print(stmt),
             Stmt::Var(_,_)      => self.execute_var(stmt),
         }
@@ -137,13 +138,6 @@ impl Interpreter {
     #[allow(unused_must_use)]
     fn execute_block(&mut self, stmt: Stmt) -> Result<types, ()> {
         if let Stmt::Block(statements) = stmt {
-
-            // let previous = self.environment;
-
-            // self.environment = Environment {
-            //     enclosing: Some(Box::new(previous)),
-            //     scope: HashMap::new(),
-            // };
 
             self.environment = Environment {
                 enclosing: Some(Box::new(
@@ -179,6 +173,22 @@ impl Interpreter {
         }
 
         // Ok(types::nil)
+    }
+
+    fn execute_if(&mut self, stmt: Stmt) -> Result<types, ()> {
+        if let Stmt::If(condition, then_branch, else_branch) = stmt {
+
+            if is_truthy(self.evaluate(*condition)?) {
+                self.execute(*then_branch)?;
+            } else {
+                // If no else clause were given
+                // we "execute" {}
+                self.execute(*else_branch)?;
+            }
+
+        }
+
+        Ok(types::nil)
     }
 
     fn execute_print(&mut self, stmt: Stmt) -> Result<types, ()> {

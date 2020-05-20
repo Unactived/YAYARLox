@@ -32,6 +32,7 @@ define_ast!(
     Stmt :=
         Block      : Vec<Stmt> statements ;
         Expression : Expr expression ;
+        If         : Expr condition, Stmt then_branch, Stmt else_branch ;
         Print      : Expr expression ;
         Var        : Token name, Expr initializer
 );
