@@ -1,5 +1,28 @@
 print "This is hello.lox";
 
+var a = 4;
+
+print a = 8;
+
+{
+	var a = 12;
+	print a;
+}
+
+print a;
+
+var b;
+
+b = 2;
+
+print b;
+
+{
+	b = 4;
+}
+
+print b;
+
 print "Multi";print "Line";
 
 print (1+2)*3 != 1+2*3;
