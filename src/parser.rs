@@ -228,7 +228,7 @@ impl Parser {
 
     fn assignment(&mut self) -> Expr {
 
-        let expr = self.equality();
+        let expr = self.or();
 
         if self.fit(vec![TokenVariant::Equal]) {
             let equal_token = self.get().clone();
@@ -241,6 +241,38 @@ impl Parser {
 
                 _ => errors::report(equal_token.line, &equal_token.lexeme, "Invalid assignment target."),
             }
+        }
+
+        expr
+    }
+
+    fn or(&mut self) -> Expr {
+        let mut expr = self.and();
+
+        while !self.is_over() && self.fit(vec![TokenVariant::Or]) {
+            let operator = self.get().clone();
+
+            self.advance();
+
+            let right = self.and();
+
+            expr = Expr::Logical(Box::new(expr), Box::new(operator), Box::new(right))
+        }
+
+        expr
+    }
+
+    fn and(&mut self) -> Expr {
+        let mut expr = self.equality();
+
+        while !self.is_over() && self.fit(vec![TokenVariant::And]) {
+            let operator = self.get().clone();
+
+            self.advance();
+
+            let right = self.and();
+
+            expr = Expr::Logical(Box::new(expr), Box::new(operator), Box::new(right))
         }
 
         expr

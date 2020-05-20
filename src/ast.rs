@@ -24,6 +24,7 @@ define_ast!(
         Binary   : Expr left, Token operator, Expr right ;
         Grouping : Expr expr ;
         Literal  : Token value ;
+        Logical  : Expr left, Token operator, Expr right ;
         Unary    : Token operator, Expr right ;
         Variable : Token name
 );

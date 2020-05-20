@@ -178,7 +178,7 @@ impl Interpreter {
     fn execute_if(&mut self, stmt: Stmt) -> Result<types, ()> {
         if let Stmt::If(condition, then_branch, else_branch) = stmt {
 
-            if is_truthy(self.evaluate(*condition)?) {
+            if is_truthy(&self.evaluate(*condition)?) {
                 self.execute(*then_branch)?;
             } else {
                 // If no else clause were given
@@ -213,12 +213,13 @@ impl Interpreter {
 
     fn evaluate(&mut self, expression: Expr) -> Result<types, ()> {
         match expression {
-            Expr::Assign(_,_)   => self.evaluate_assign(expression),
-            Expr::Literal(_)    => self.evaluate_literal(expression),
-            Expr::Grouping(_)   => self.evaluate_parentheses(expression),
-            Expr::Unary(_,_)    => self.evaluate_unary(expression),
-            Expr::Binary(_,_,_) => self.evaluate_binary(expression),
-            Expr::Variable(_)   => self.get_variable(expression),
+            Expr::Assign(_,_)    => self.evaluate_assign(expression),
+            Expr::Literal(_)     => self.evaluate_literal(expression),
+            Expr::Grouping(_)    => self.evaluate_parentheses(expression),
+            Expr::Logical(_,_,_) => self.evaluate_logical(expression),
+            Expr::Unary(_,_)     => self.evaluate_unary(expression),
+            Expr::Binary(_,_,_)  => self.evaluate_binary(expression),
+            Expr::Variable(_)    => self.get_variable(expression),
         }
     }
 
@@ -259,6 +260,30 @@ impl Interpreter {
         }
     }
 
+    fn evaluate_logical(&mut self, expression: Expr) -> Result<types, ()> {
+        if let Expr::Logical(left, operator, right) = expression {
+
+            let left = self.evaluate(*left)?;
+
+            let operator = *operator;
+
+            if let TokenVariant::Or = operator.class {
+                if is_truthy(&left) {
+                    return Ok(left);
+                }
+            } else {
+                if !is_truthy(&left) {
+                    return Ok(left);
+                }
+            }
+
+            return self.evaluate(*right);
+
+        } else {
+            panic!("expression should be a Logical");
+        }
+    }
+
     fn evaluate_unary(&mut self, expression: Expr) -> Result<types, ()> {
         if let Expr::Unary(operator, val) = expression {
 
@@ -270,7 +295,7 @@ impl Interpreter {
                     let target = check_number_operand(operator, target)?;
                     Ok(types::number(-target))
                 },
-                (TokenVariant::Bang, target) => Ok(types::boolean(!is_truthy(target))),
+                (TokenVariant::Bang, target) => Ok(types::boolean(!is_truthy(&target))),
 
                 _ => panic!("Unary should hold Minus and a number, or Bang and any type"),
 
@@ -393,7 +418,7 @@ fn check_number_operands(operator: &Token, left: types, right: types) -> Result<
 
 /// Ruby: are falsey false and nil
 /// everything else is truthy
-fn is_truthy(object: types) -> bool {
+fn is_truthy(object: &types) -> bool {
     match object {
         types::boolean(false) | types::nil => false,
         _ => true,
