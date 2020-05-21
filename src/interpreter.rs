@@ -131,6 +131,7 @@ impl Interpreter {
             Stmt::If(_,_,_)     => self.execute_if(stmt),
             Stmt::Print(_)      => self.execute_print(stmt),
             Stmt::Var(_,_)      => self.execute_var(stmt),
+            Stmt::While(_,_)    => self.execute_while(stmt),
         }
 
     }
@@ -206,6 +207,20 @@ impl Interpreter {
             let initializer = self.evaluate(*initializer)?;
 
             self.environment.define(name, initializer);
+        }
+
+        Ok(types::nil)
+    }
+
+    fn execute_while(&mut self, stmt: Stmt) -> Result<types, ()> {
+        if let Stmt::While(condition, body) = stmt {
+            let condition = *condition;
+            let body = *body;
+
+            while is_truthy(&(self.evaluate(condition.clone())?)) {
+                self.execute(body.clone())?;
+            }
+
         }
 
         Ok(types::nil)

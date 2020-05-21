@@ -15,8 +15,8 @@ Tree-walk interpreter
 - [ ] Control flow
   - [x] If and If-else structures
   - [x] and, or conditional operators
-  - [ ] While loop
-  - [ ] For loop
+  - [x] While loop
+  - [x] For loop
 - [ ] Functions
 - [ ] Resolving / Binding
 - [ ] Classes

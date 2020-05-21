@@ -7,7 +7,7 @@ macro_rules! define_ast {
         $( $expr:ident : $( $type:ident$(<$($thing:ident),*>)? $name:ident ),* );*
     ) => {
 
-        #[derive(Debug)]
+        #[derive(Clone, Debug)]
         pub enum $Category {
         $(
             $expr(
@@ -35,5 +35,6 @@ define_ast!(
         Expression : Expr expression ;
         If         : Expr condition, Stmt then_branch, Stmt else_branch ;
         Print      : Expr expression ;
-        Var        : Token name, Expr initializer
+        Var        : Token name, Expr initializer ;
+        While      : Expr condition, Stmt body
 );

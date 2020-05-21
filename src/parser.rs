@@ -70,7 +70,8 @@ impl Parser {
         self.current += 1;
     }
 
-    fn consume(&mut self, variant: TokenVariant, message: &str) {
+    // checks the next variant in two steps and advances if correct
+    fn expect_next(&mut self, variant: TokenVariant, message: &str) {
         if self.peek().class == variant {
             self.advance();
         } else {
@@ -78,8 +79,18 @@ impl Parser {
         }
     }
 
-    fn consume_still(&mut self, variant: TokenVariant, message: &str) {
+    // checks the current variant
+    fn expect(&mut self, variant: TokenVariant, message: &str) {
         if self.get().class != variant {
+            self.error(message);
+        }
+    }
+
+    // checks the current value and advances if correct
+    fn consume(&mut self, variant: TokenVariant, message: &str) {
+        if self.get().class == variant {
+            self.advance();
+        } else {
             self.error(message);
         }
     }
@@ -146,7 +157,7 @@ impl Parser {
             )))
         };  
 
-        self.consume(TokenVariant::Semicolon, "Expect ';' after expression.");
+        self.expect_next(TokenVariant::Semicolon, "Expect ';' after expression.");
 
         Stmt::Var(Box::new(name), Box::new(initializer))
     }
@@ -159,6 +170,12 @@ impl Parser {
         } else if self.fit_still(vec![TokenVariant::Print]) {
             self.advance();
             self.print_stmt()
+        } else if self.fit_still(vec![TokenVariant::While]) {
+            self.advance();
+            self.while_stmt()
+        } else if self.fit_still(vec![TokenVariant::For]) {
+            self.advance();
+            self.for_stmt()
         } else if self.fit_still(vec![TokenVariant::LeftBrace]) {
             self.advance();
             self.block_stmt()
@@ -171,20 +188,18 @@ impl Parser {
     fn expr_stmt(&mut self) -> Stmt {
         let expr = self.expression();
 
-        self.consume(TokenVariant::Semicolon, "Expect ';' after expression.");
+        self.expect_next(TokenVariant::Semicolon, "Expect ';' after expression.");
 
         Stmt::Expression(Box::new(expr))
     }
 
     fn if_stmt(&mut self) -> Stmt {
 
-        self.consume_still(TokenVariant::LeftParen, "Expect '(' after 'if'.");
+        self.expect(TokenVariant::LeftParen, "Expect '(' after 'if'.");
 
         let condition = self.expression();
 
-        self.consume_still(TokenVariant::RightParen, "Expect ')' after if condition.");
-
-        self.advance();
+        self.consume(TokenVariant::RightParen, "Expect ')' after if condition.");
 
         let then_branch = self.statement();
 
@@ -207,15 +222,109 @@ impl Parser {
             self.advance();
         }
 
-        self.consume_still(TokenVariant::RightBrace, "Expect '}' after block.");
+        self.expect(TokenVariant::RightBrace, "Expect '}' after block.");
 
         Stmt::Block(Box::new(statements))
+    }
+
+    fn while_stmt(&mut self) -> Stmt {
+
+        self.expect(TokenVariant::LeftParen, "Expect '(' after 'while'.");
+
+        let condition = self.expression();
+
+        self.consume(TokenVariant::RightParen, "Expect ')' after while condition.");
+
+        let body = self.statement();
+
+        Stmt::While(Box::new(condition), Box::new(body))
+
+    }
+
+    fn for_stmt(&mut self) -> Stmt {
+
+        self.consume(TokenVariant::LeftParen, "Expect '(' after 'for'.");
+
+        // here statements consume the semicolon
+        // the expressions that are the condition and the increment,
+        // following this, don't.
+        let initializer = if self.fit_still(vec![TokenVariant::Semicolon]) {
+            // Another empty block as a void statement
+            Stmt::Block(Box::new(Vec::new()))
+        } else if self.fit_still(vec![TokenVariant::Var]) {
+            self.var_declaration()
+        } else  {
+            self.expr_stmt()
+        };
+
+        let condition: Expr;
+
+        if self.fit(vec![TokenVariant::Semicolon]) {
+
+            // if no condition is given, it's a while-true loop
+            // although, this is stil defined by the lone ';'
+            let semicolon = (*self.get()).clone();
+            // self.advance();
+
+            condition = Expr::Literal(Box::new(Token {
+                lexeme: String::from(";"),
+                line: semicolon.line,
+                class: TokenVariant::True
+            }));
+
+        } else {
+            self.advance();
+            condition = self.expression();
+            self.advance();
+        }
+
+        // second semicolon
+        self.consume(TokenVariant::Semicolon, "Expect ';' after loop condition.");
+
+        let increment: Expr;
+
+        if self.fit_still(vec![TokenVariant::RightParen]) {
+            // the actual value of the increment will be discarded
+            // if none is given, let it be nil
+            let semicolon = (*self.get()).clone();
+
+            increment = Expr::Literal(Box::new(Token {
+                lexeme: String::from(";"),
+                line: semicolon.line,
+                class: TokenVariant::Nil
+            }));
+        } else {
+            increment = self.expression();
+            self.advance();
+        }
+
+        self.consume(TokenVariant::RightParen, "Expect ')' after for clauses.");
+
+        let mut body = self.statement();
+
+        // the body of the while loop: what is actually done,
+        // and the increment part
+        body = Stmt::Block(Box::new(vec![
+            body,
+            Stmt::Expression(Box::new(increment))
+        ]));
+
+        // wrap it in an actual while-loop with its condition
+        body = Stmt::While(Box::new(condition), Box::new(body));
+
+        // finally it's a block starting by the initializer and
+        // then doing the loop
+        Stmt::Block(Box::new(vec![
+            initializer,
+            body
+        ]))
+
     }
 
     fn print_stmt(&mut self) -> Stmt {
         let value = self.expression();
 
-        self.consume(TokenVariant::Semicolon, "Expect ';' after value.");
+        self.expect_next(TokenVariant::Semicolon, "Expect ';' after value.");
 
         Stmt::Print(Box::new(value))
     }
@@ -320,7 +429,7 @@ impl Parser {
                 self.advance();
 
                 let expr = self.expression();
-                self.consume(TokenVariant::RightParen, "Expected ')' after expression.");
+                self.expect_next(TokenVariant::RightParen, "Expected ')' after expression.");
 
                 Expr::Grouping(Box::new(expr))
             },
