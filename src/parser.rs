@@ -263,12 +263,10 @@ impl Parser {
 
             // if no condition is given, it's a while-true loop
             // although, this is stil defined by the lone ';'
-            let semicolon = (*self.get()).clone();
-            // self.advance();
 
             condition = Expr::Literal(Box::new(Token {
                 lexeme: String::from(";"),
-                line: semicolon.line,
+                line: self.get().line,
                 class: TokenVariant::True
             }));
 
@@ -286,11 +284,10 @@ impl Parser {
         if self.fit_still(vec![TokenVariant::RightParen]) {
             // the actual value of the increment will be discarded
             // if none is given, let it be nil
-            let semicolon = (*self.get()).clone();
 
             increment = Expr::Literal(Box::new(Token {
                 lexeme: String::from(";"),
-                line: semicolon.line,
+                line: self.get().line,
                 class: TokenVariant::Nil
             }));
         } else {

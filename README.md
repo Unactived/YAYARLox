@@ -12,7 +12,7 @@ Tree-walk interpreter
   - [x] Variable declaration
   - [x] Variable assignment
   - [x] Static, lexical scope
-- [ ] Control flow
+- [x] Control flow
   - [x] If and If-else structures
   - [x] and, or conditional operators
   - [x] While loop
