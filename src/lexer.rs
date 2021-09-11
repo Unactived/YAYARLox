@@ -135,9 +135,7 @@ pub fn scan(code: String) -> (Vec<Token>, bool) {
             Some(_) => add_token(
                 &mut tokens,
                 matched.unwrap(),
-                state.source[state.start..=state.current]
-                    .into_iter()
-                    .collect(),
+                state.source[state.start..=state.current].iter().collect(),
                 &state,
             ),
             None => (),
@@ -179,8 +177,8 @@ fn add_token(tokens: &mut Vec<Token>, variant: TokenVariant, text: String, state
 }
 
 fn string(state: &mut Lexer) -> Result<TokenVariant, ()> {
-    while state.current + 1 < state.length && peek(&state) != '"' {
-        if peek(&state) == '\n' {
+    while state.current + 1 < state.length && peek(state) != '"' {
+        if peek(state) == '\n' {
             state.line += 1;
         }
         state.current += 1;
@@ -196,28 +194,28 @@ fn string(state: &mut Lexer) -> Result<TokenVariant, ()> {
     state.current += 1;
 
     let literal = state.source[state.start + 1..state.current]
-        .into_iter()
+        .iter()
         .collect();
 
     Ok(TokenVariant::String(literal))
 }
 
 fn number(state: &mut Lexer) -> Result<TokenVariant, ()> {
-    while state.current + 1 < state.length && peek(&state).is_digit(10) {
+    while state.current + 1 < state.length && peek(state).is_digit(10) {
         state.current += 1;
     }
 
     // Fractional part
-    if peek(&state) == '.' && state.current + 2 < state.length && peek_next(&state).is_digit(10) {
+    if peek(state) == '.' && state.current + 2 < state.length && peek_next(state).is_digit(10) {
         state.current += 1;
 
-        while state.current + 1 < state.length && peek(&state).is_digit(10) {
+        while state.current + 1 < state.length && peek(state).is_digit(10) {
             state.current += 1;
         }
     }
 
     let literal: Result<f64, _> = state.source[state.start..=state.current]
-        .into_iter()
+        .iter()
         .collect::<String>()
         .parse();
 
@@ -232,15 +230,12 @@ fn number(state: &mut Lexer) -> Result<TokenVariant, ()> {
 }
 
 fn identifier(state: &mut Lexer) -> String {
-    while state.current + 1 < state.length
-        && (peek(&state).is_alphanumeric() || peek(&state) == '_')
+    while state.current + 1 < state.length && (peek(state).is_alphanumeric() || peek(state) == '_')
     {
         state.current += 1;
     }
 
-    state.source[state.start..=state.current]
-        .into_iter()
-        .collect()
+    state.source[state.start..=state.current].iter().collect()
 }
 
 #[rustfmt::skip]

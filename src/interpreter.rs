@@ -198,7 +198,7 @@ impl Environment {
             Some(val) => Ok((*val).clone()),
             None => {
                 if let Some(env) = &self.enclosing {
-                    return (*env).get(name);
+                    (*env).get(name)
                 } else {
                     Err(())
                 }
@@ -443,13 +443,11 @@ impl Interpreter {
                 if is_truthy(&left) {
                     return Ok(left);
                 }
-            } else {
-                if !is_truthy(&left) {
-                    return Ok(left);
-                }
+            } else if !is_truthy(&left) {
+                return Ok(left);
             }
 
-            return self.evaluate(*right);
+            self.evaluate(*right)
         } else {
             panic!("expression should be a Logical");
         }
@@ -537,7 +535,7 @@ impl Interpreter {
                 TokenVariant::Identifier(ident) => {
                     let attempt = self.environment.get(&ident);
 
-                    if let Ok(_) = attempt {
+                    if attempt.is_ok() {
                         attempt
                     } else {
                         error(&original, &format!("Variable '{}' doesn't exist.", &ident));
@@ -574,10 +572,7 @@ fn check_number_operands(operator: &Token, left: types, right: types) -> Result<
 /// Ruby: are falsey false and nil
 /// everything else is truthy
 fn is_truthy(object: &types) -> bool {
-    match object {
-        types::boolean(false) | types::nil => false,
-        _ => true,
-    }
+    !matches!(object, types::boolean(false) | types::nil)
 }
 
 fn error(token: &Token, message: &str) {

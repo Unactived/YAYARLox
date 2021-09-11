@@ -94,7 +94,7 @@ fn main() {
         1 => run_prompt(),
         2 => run_file(path::PathBuf::from(args.nth(1).unwrap())),
         _ => {
-            eprintln!("Usage: {} [script]", args.nth(0).unwrap());
+            eprintln!("Usage: {} [script]", args.next().unwrap());
             process::exit(exitcode::USAGE);
         }
     }
