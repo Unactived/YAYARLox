@@ -1,35 +1,35 @@
-print "This is example.lox";
+print "Nearly-complete example";
 print "";
 
+print "Declare a as 4";
 var a = 4;
 
+print "Assignment is an expression of value the assigned value, here 8";
 print a = 8;
 
+print "";
+
 {
+	print "Enter block";
+	print "Shadow a with 12";
 	var a = 12;
+
+	print "Here a is now:";
 	print a;
 }
 
+print "Leave block";
+print "";
+
+print "Now a is back to:";
 print a;
 print "";
 
-var b;
-
-b = 2;
-
-print b;
-
-{
-	b = 4;
-}
-
-print b;
-print "";
-
+print "Is 1+1 < 1 ?";
 if (1+1 < 1)
-	print "1+1 < 1";
+	print "Yes, 1+1 < 1";
 else
-	print "1+1 >= 1";
+	print "No, 1+1 >= 1";
 
 "This is dead code";
 
@@ -37,18 +37,43 @@ var forty_two = (3+3) * 8 - 6;
 var hello = "Hello, ";
 var world = "World !";
 
-if (3 == 1+1+1)
-	print "3 == 1+1+1 !!!";
-
 print "";
 
 print "hi" or 2; // "hi"
 print nil or "yes"; // "yes"
-
 print "hi" and 2; // 2
-print nil and "yes"; // nil
-
+print nil and "yes";// nil
 print "";
 
+print "We got concatenation, too:";
 print hello + world;
-print "The answer is"; print forty_two;
+print "";
+
+print "The answer to (3+3) * 8 - 6 is:"; print forty_two;
+print "";
+
+fun factorial(n) {
+  var acc = 1;
+
+  for (var i = 1; i <= n; i = i + 1) {
+    acc = acc * i;
+  }
+
+  print acc;
+}
+
+print "The factorials of 169, 170 and 171 are:";
+print "";
+
+var A = clock();
+
+factorial(169);
+factorial(170);
+factorial(171);
+
+var B = clock();
+
+print "That last one's quite big ! Seconds taken to compute:";
+print B - A;
+print "";
+print "Yeah who uses seconds";
