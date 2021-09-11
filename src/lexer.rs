@@ -1,8 +1,7 @@
-use std::fmt;
 use crate::errors;
+use std::fmt;
 
 pub fn scan(code: String) -> (Vec<Token>, bool) {
-
     let mut state = Lexer {
         length: code.chars().count(),
         source: code.chars().collect(),
@@ -17,7 +16,6 @@ pub fn scan(code: String) -> (Vec<Token>, bool) {
     let mut tokens: Vec<Token> = Vec::new();
 
     while state.current < state.length {
-
         state.start = state.current;
 
         let c = state.source[state.current];
@@ -25,10 +23,10 @@ pub fn scan(code: String) -> (Vec<Token>, bool) {
         let matched = match c {
             ' ' | '\r' | '\t' => None,
 
-            '\n' =>{
+            '\n' => {
                 state.line += 1;
                 None
-            },
+            }
 
             '(' => Some(TokenVariant::LeftParen),
             ')' => Some(TokenVariant::RightParen),
@@ -41,39 +39,49 @@ pub fn scan(code: String) -> (Vec<Token>, bool) {
             ';' => Some(TokenVariant::Semicolon),
             '*' => Some(TokenVariant::Star),
 
-            '!' => if check('=', &mut state) {
-                Some(TokenVariant::BangEqual)
-            } else {
-                Some(TokenVariant::Bang)
-            },
-
-            '=' => if check('=', &mut state) {
-                Some(TokenVariant::EqualEqual)
-            } else {
-                Some(TokenVariant::Equal)
-            },
-
-            '<' => if check('=', &mut state) {
-                Some(TokenVariant::LessEqual)
-            } else {
-                Some(TokenVariant::Less)
-            },
-
-            '>' => if check('=', &mut state) {
-                Some(TokenVariant::GreaterEqual)
-            } else {
-                Some(TokenVariant::Greater)
-            },
-
-            '/' => if check('/', &mut state) {
-                // A comment. Advance until EOF or EOL.
-                while state.current + 1 < state.length && peek(&state) != '\n' {
-                    state.current += 1
+            '!' => {
+                if check('=', &mut state) {
+                    Some(TokenVariant::BangEqual)
+                } else {
+                    Some(TokenVariant::Bang)
                 }
-                None
-            } else {
-                Some(TokenVariant::Slash)
-            },
+            }
+
+            '=' => {
+                if check('=', &mut state) {
+                    Some(TokenVariant::EqualEqual)
+                } else {
+                    Some(TokenVariant::Equal)
+                }
+            }
+
+            '<' => {
+                if check('=', &mut state) {
+                    Some(TokenVariant::LessEqual)
+                } else {
+                    Some(TokenVariant::Less)
+                }
+            }
+
+            '>' => {
+                if check('=', &mut state) {
+                    Some(TokenVariant::GreaterEqual)
+                } else {
+                    Some(TokenVariant::Greater)
+                }
+            }
+
+            '/' => {
+                if check('/', &mut state) {
+                    // A comment. Advance until EOF or EOL.
+                    while state.current + 1 < state.length && peek(&state) != '\n' {
+                        state.current += 1
+                    }
+                    None
+                } else {
+                    Some(TokenVariant::Slash)
+                }
+            }
 
             '"' => {
                 let res = string(&mut state);
@@ -81,7 +89,7 @@ pub fn scan(code: String) -> (Vec<Token>, bool) {
                     Ok(token) => Some(token),
                     Err(_) => None,
                 }
-            },
+            }
 
             '0'..='9' => {
                 let res = number(&mut state);
@@ -89,96 +97,85 @@ pub fn scan(code: String) -> (Vec<Token>, bool) {
                     Ok(token) => Some(token),
                     Err(_) => None,
                 }
-            },
+            }
 
             'A'..='Z' | 'a'..='z' | '_' => {
                 let id = identifier(&mut state);
                 match &id[..] {
-
                     // reserved keywords
-                    "and"    => Some(TokenVariant::And),
-                    "class"  => Some(TokenVariant::Class),
-                    "else"   => Some(TokenVariant::Else),
-                    "false"  => Some(TokenVariant::False),
-                    "for"    => Some(TokenVariant::For),
-                    "fun"    => Some(TokenVariant::Fun),
-                    "if"     => Some(TokenVariant::If),
-                    "nil"    => Some(TokenVariant::Nil),
-                    "or"     => Some(TokenVariant::Or),
-                    "print"  => Some(TokenVariant::Print),
+                    "and" => Some(TokenVariant::And),
+                    "class" => Some(TokenVariant::Class),
+                    "else" => Some(TokenVariant::Else),
+                    "false" => Some(TokenVariant::False),
+                    "for" => Some(TokenVariant::For),
+                    "fun" => Some(TokenVariant::Fun),
+                    "if" => Some(TokenVariant::If),
+                    "nil" => Some(TokenVariant::Nil),
+                    "or" => Some(TokenVariant::Or),
+                    "print" => Some(TokenVariant::Print),
                     "return" => Some(TokenVariant::Return),
-                    "super"  => Some(TokenVariant::Super),
-                    "this"   => Some(TokenVariant::This),
-                    "true"   => Some(TokenVariant::True),
-                    "var"    => Some(TokenVariant::Var),
-                    "while"  => Some(TokenVariant::While),
+                    "super" => Some(TokenVariant::Super),
+                    "this" => Some(TokenVariant::This),
+                    "true" => Some(TokenVariant::True),
+                    "var" => Some(TokenVariant::Var),
+                    "while" => Some(TokenVariant::While),
 
                     _ => Some(TokenVariant::Identifier(id)),
                 }
-            },
+            }
 
             _ => {
                 errors::error(state.line, &format!("Unexpected character: {}.", c));
                 state.had_error = true;
                 None
-            },
+            }
         };
 
         match &matched {
             Some(_) => add_token(
                 &mut tokens,
-                matched.unwrap(), 
-                state.source[state.start..=state.current].into_iter().collect(), 
-                &state
+                matched.unwrap(),
+                state.source[state.start..=state.current]
+                    .into_iter()
+                    .collect(),
+                &state,
             ),
             None => (),
         }
 
         state.current += 1;
-
     }
 
-    tokens.push(Token::new(
-        TokenVariant::Eof, 
-        String::new(),
-        state.line
-    ));
+    tokens.push(Token::new(TokenVariant::Eof, String::new(), state.line));
 
     (tokens, state.had_error)
-
 }
 
 /// Used to compare the next character to an expected one.
 /// Advances if the character is as expected
 fn check(expected: char, state: &mut Lexer) -> bool {
-
-    if state.current + 1 >= state.length || state.source[state.current+1] != expected {
+    if state.current + 1 >= state.length || state.source[state.current + 1] != expected {
         false
     } else {
         state.current += 1;
         true
     }
-
 }
 
 /// Returns the next character that will be read
 /// Doesn't advance the lexer
 /// Boundary checking should be done upstream
 fn peek(state: &Lexer) -> char {
-    state.source[state.current+1]
+    state.source[state.current + 1]
 }
 
 /// Like peek but two characters ahead
 fn peek_next(state: &Lexer) -> char {
-    state.source[state.current+2]
+    state.source[state.current + 2]
 }
 
 fn add_token(tokens: &mut Vec<Token>, variant: TokenVariant, text: String, state: &Lexer) {
-    tokens.push(Token::new(
-        variant,
-        text,
-        state.line
-    ));
+    tokens.push(Token::new(variant, text, state.line));
 }
 
 fn string(state: &mut Lexer) -> Result<TokenVariant, ()> {
@@ -198,13 +195,14 @@ fn string(state: &mut Lexer) -> Result<TokenVariant, ()> {
     // closing `"`
     state.current += 1;
 
-    let literal = state.source[state.start+1..state.current].into_iter().collect();
+    let literal = state.source[state.start + 1..state.current]
+        .into_iter()
+        .collect();
 
     Ok(TokenVariant::String(literal))
 }
 
 fn number(state: &mut Lexer) -> Result<TokenVariant, ()> {
-
     while state.current + 1 < state.length && peek(&state).is_digit(10) {
         state.current += 1;
     }
@@ -215,14 +213,13 @@ fn number(state: &mut Lexer) -> Result<TokenVariant, ()> {
 
         while state.current + 1 < state.length && peek(&state).is_digit(10) {
             state.current += 1;
-        } 
-
+        }
     }
 
     let literal: Result<f64, _> = state.source[state.start..=state.current]
-                       .into_iter()
-                       .collect::<String>()
-                       .parse();
+        .into_iter()
+        .collect::<String>()
+        .parse();
 
     match literal {
         Ok(num) => Ok(TokenVariant::Number(num)),
@@ -235,13 +232,18 @@ fn number(state: &mut Lexer) -> Result<TokenVariant, ()> {
 }
 
 fn identifier(state: &mut Lexer) -> String {
-    while state.current + 1 < state.length && (peek(&state).is_alphanumeric() || peek(&state) == '_'){
+    while state.current + 1 < state.length
+        && (peek(&state).is_alphanumeric() || peek(&state) == '_')
+    {
         state.current += 1;
     }
 
-    state.source[state.start..=state.current].into_iter().collect()
+    state.source[state.start..=state.current]
+        .into_iter()
+        .collect()
 }
 
+#[rustfmt::skip]
 #[derive(Clone, Debug, PartialEq)]
 pub enum TokenVariant {
     // Single-character tokens.

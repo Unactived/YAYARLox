@@ -4,14 +4,13 @@ mod interpreter;
 mod lexer;
 mod parser;
 
-use std::{env, path, process, fs};
 use std::io::{self, Write};
+use std::{env, fs, path, process};
 
-use interpreter::{Interpreter, types};
+use interpreter::{types, Interpreter};
 
 #[allow(unused_must_use)]
 fn lex_and_parse<'a>(code: String) -> Result<Vec<ast::Stmt>, &'a str> {
-
     let (tokens, had_error) = lexer::scan(code);
 
     // println!("Tokens:");
@@ -36,7 +35,6 @@ fn lex_and_parse<'a>(code: String) -> Result<Vec<ast::Stmt>, &'a str> {
 }
 
 fn run_file(file_path: path::PathBuf) {
-
     let display = file_path.display();
 
     let code = fs::read_to_string(&file_path).unwrap_or_else(|error| {
@@ -54,12 +52,10 @@ fn run_file(file_path: path::PathBuf) {
     interpreter.interpret(statements).unwrap_or_else(|()| {
         process::exit(exitcode::DATAERR);
     });
-
 }
 
 #[allow(unused_must_use)]
 fn run_prompt() {
-
     let mut interpreter = Interpreter::new();
 
     loop {
@@ -89,11 +85,9 @@ fn run_prompt() {
             println!("{:?}", expr);
         }
     }
-
 }
 
 fn main() {
-
     let mut args = env::args();
 
     match args.len() {
@@ -102,7 +96,6 @@ fn main() {
         _ => {
             eprintln!("Usage: {} [script]", args.nth(0).unwrap());
             process::exit(exitcode::USAGE);
-        },
+        }
     }
-
 }

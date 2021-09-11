@@ -3,7 +3,6 @@ use crate::errors;
 use crate::lexer::{Token, TokenVariant};
 
 pub fn parse(tokens: Vec<Token>) -> (Vec<Stmt>, bool) {
-
     let mut state = Parser {
         length: tokens.len(),
         tokens,
@@ -21,7 +20,6 @@ pub fn parse(tokens: Vec<Token>) -> (Vec<Stmt>, bool) {
     }
 
     (statements, state.had_error)
-
 }
 
 // Could be improved by taking all the chain at once,
@@ -47,7 +45,6 @@ macro_rules! binary {
     };
 }
 
-
 #[derive(Debug)]
 struct Parser {
     length: usize,
@@ -59,11 +56,14 @@ struct Parser {
 }
 
 impl Parser {
-
     // Progress
 
     fn is_over(&self) -> bool {
         self.current + 1 >= self.length
+    }
+
+    fn back(&mut self) {
+        self.current -= 1;
     }
 
     fn advance(&mut self) {
@@ -99,12 +99,12 @@ impl Parser {
     // Boundary checking should be done beforehand
 
     fn peek(&self) -> &Token {
-        &self.tokens[self.current+1]
+        &self.tokens[self.current + 1]
     }
 
-    // fn previous(&self) -> &Token {
-    //     &self.tokens[self.current+1]
-    // }
+    fn previous(&self) -> &Token {
+        &self.tokens[self.current - 1]
+    }
 
     fn get(&self) -> &Token {
         &self.tokens[self.current]
@@ -132,9 +132,63 @@ impl Parser {
     fn declaration(&mut self) -> Stmt {
         if self.fit_still(vec![TokenVariant::Var]) {
             self.var_declaration()
+        } else if self.fit_still(vec![TokenVariant::Fun]) {
+            self.function("function")
         } else {
             self.statement()
         }
+    }
+
+    fn function(&mut self, kind: &str) -> Stmt {
+        match self.peek().class {
+            TokenVariant::Identifier(_) => self.advance(),
+
+            _ => self.error(&format!("Expect {} name.", kind)),
+        }
+
+        let name = self.get().clone();
+
+        self.advance();
+        self.consume(
+            TokenVariant::LeftParen,
+            &format!("Expect '(' after {} name.", kind),
+        );
+
+        let mut parameters = Vec::new();
+
+        if !self.fit_still(vec![TokenVariant::RightParen]) {
+            loop {
+                parameters.push(self.get().clone());
+
+                if parameters.len() >= 255 {
+                    self.error("Function cannot have more than 255 arguments.")
+                }
+
+                if !self.fit(vec![TokenVariant::Comma]) {
+                    self.advance();
+                    break;
+                }
+
+                // consume comma
+                self.advance();
+            }
+        }
+
+        self.consume(TokenVariant::RightParen, "Expect ')' after parameters.");
+
+        self.consume(
+            TokenVariant::LeftBrace,
+            &format!("Expect '{{' before {} body.", kind),
+        );
+
+        let mut body = Vec::new();
+
+        while !self.is_over() && !self.fit_still(vec![TokenVariant::RightBrace]) {
+            body.push(self.declaration());
+            self.advance();
+        }
+
+        Stmt::Function(Box::new(name), Box::new(parameters), Box::new(body))
     }
 
     fn var_declaration(&mut self) -> Stmt {
@@ -155,7 +209,7 @@ impl Parser {
                 String::from(""),
                 name.line,
             )))
-        };  
+        };
 
         self.expect_next(TokenVariant::Semicolon, "Expect ';' after expression.");
 
@@ -163,7 +217,6 @@ impl Parser {
     }
 
     fn statement(&mut self) -> Stmt {
-
         if self.fit_still(vec![TokenVariant::If]) {
             self.advance();
             self.if_stmt()
@@ -182,7 +235,6 @@ impl Parser {
         } else {
             self.expr_stmt()
         }
-
     }
 
     fn expr_stmt(&mut self) -> Stmt {
@@ -194,7 +246,6 @@ impl Parser {
     }
 
     fn if_stmt(&mut self) -> Stmt {
-
         self.expect(TokenVariant::LeftParen, "Expect '(' after 'if'.");
 
         let condition = self.expression();
@@ -210,8 +261,11 @@ impl Parser {
             Stmt::Block(Box::new(Vec::new()))
         };
 
-        Stmt::If(Box::new(condition), Box::new(then_branch), Box::new(else_branch))
-
+        Stmt::If(
+            Box::new(condition),
+            Box::new(then_branch),
+            Box::new(else_branch),
+        )
     }
 
     fn block_stmt(&mut self) -> Stmt {
@@ -228,21 +282,21 @@ impl Parser {
     }
 
     fn while_stmt(&mut self) -> Stmt {
-
         self.expect(TokenVariant::LeftParen, "Expect '(' after 'while'.");
 
         let condition = self.expression();
 
-        self.consume(TokenVariant::RightParen, "Expect ')' after while condition.");
+        self.consume(
+            TokenVariant::RightParen,
+            "Expect ')' after while condition.",
+        );
 
         let body = self.statement();
 
         Stmt::While(Box::new(condition), Box::new(body))
-
     }
 
     fn for_stmt(&mut self) -> Stmt {
-
         self.consume(TokenVariant::LeftParen, "Expect '(' after 'for'.");
 
         // here statements consume the semicolon
@@ -253,23 +307,21 @@ impl Parser {
             Stmt::Block(Box::new(Vec::new()))
         } else if self.fit_still(vec![TokenVariant::Var]) {
             self.var_declaration()
-        } else  {
+        } else {
             self.expr_stmt()
         };
 
         let condition: Expr;
 
         if self.fit(vec![TokenVariant::Semicolon]) {
-
             // if no condition is given, it's a while-true loop
             // although, this is stil defined by the lone ';'
 
             condition = Expr::Literal(Box::new(Token {
                 lexeme: String::from(";"),
                 line: self.get().line,
-                class: TokenVariant::True
+                class: TokenVariant::True,
             }));
-
         } else {
             self.advance();
             condition = self.expression();
@@ -288,7 +340,7 @@ impl Parser {
             increment = Expr::Literal(Box::new(Token {
                 lexeme: String::from(";"),
                 line: self.get().line,
-                class: TokenVariant::Nil
+                class: TokenVariant::Nil,
             }));
         } else {
             increment = self.expression();
@@ -301,21 +353,14 @@ impl Parser {
 
         // the body of the while loop: what is actually done,
         // and the increment part
-        body = Stmt::Block(Box::new(vec![
-            body,
-            Stmt::Expression(Box::new(increment))
-        ]));
+        body = Stmt::Block(Box::new(vec![body, Stmt::Expression(Box::new(increment))]));
 
         // wrap it in an actual while-loop with its condition
         body = Stmt::While(Box::new(condition), Box::new(body));
 
         // finally it's a block starting by the initializer and
         // then doing the loop
-        Stmt::Block(Box::new(vec![
-            initializer,
-            body
-        ]))
-
+        Stmt::Block(Box::new(vec![initializer, body]))
     }
 
     fn print_stmt(&mut self) -> Stmt {
@@ -333,7 +378,6 @@ impl Parser {
     }
 
     fn assignment(&mut self) -> Expr {
-
         let expr = self.or();
 
         if self.fit(vec![TokenVariant::Equal]) {
@@ -345,7 +389,11 @@ impl Parser {
             match expr {
                 Expr::Variable(name) => return Expr::Assign(name, Box::new(value)),
 
-                _ => errors::report(equal_token.line, &equal_token.lexeme, "Invalid assignment target."),
+                _ => errors::report(
+                    equal_token.line,
+                    &equal_token.lexeme,
+                    "Invalid assignment target.",
+                ),
             }
         }
 
@@ -387,32 +435,73 @@ impl Parser {
     // Recursive binary expression chain
 
     binary!(equality, comparison, [EqualEqual, BangEqual]);
-    binary!(comparison, addition, [Greater, GreaterEqual, Less, LessEqual]);
+    binary!(
+        comparison,
+        addition,
+        [Greater, GreaterEqual, Less, LessEqual]
+    );
     binary!(addition, multiplication, [Minus, Plus]);
     binary!(multiplication, unary, [Star, Slash]);
 
     fn unary(&mut self) -> Expr {
-
         if !self.is_over() && self.fit_still(vec![TokenVariant::Bang, TokenVariant::Minus]) {
-            let operator = self.get()
-                               .clone();
+            let operator = self.get().clone();
             self.advance();
             let right = self.unary();
             Expr::Unary(Box::new(operator), Box::new(right))
         } else {
-            self.primary()
+            self.call()
         }
     }
 
-    fn primary(&mut self) -> Expr {
-        // if self.is_over() {
-        //     self.error("Expected expression");
-        //     return Expr::Literal(Box::new(Token::new(
-        //         TokenVariant::Nil,
-        //         String::from(""),
-        //         0)));
-        // }
+    fn call(&mut self) -> Expr {
+        let mut expr = self.primary();
 
+        // expr(a,b)()
+        loop {
+            if self.fit(vec![TokenVariant::LeftParen]) {
+                self.advance();
+                expr = self.finish_call(expr);
+            } else {
+                break;
+            }
+        }
+
+        expr
+    }
+
+    fn finish_call(&mut self, callee: Expr) -> Expr {
+        let mut arguments = Vec::new();
+
+        if !self.fit_still(vec![TokenVariant::RightParen]) {
+            loop {
+                arguments.push(self.expression());
+
+                if arguments.len() >= 255 {
+                    self.error("Function cannot have more than 255 arguments.")
+                }
+
+                if !self.fit(vec![TokenVariant::Comma]) {
+                    self.advance();
+                    break;
+                }
+
+                // consume comma
+                self.advance();
+            }
+        }
+
+        self.consume(TokenVariant::RightParen, "Expect ')' after arguments.");
+
+        let paren = self.previous().clone();
+
+        // hack
+        self.back();
+
+        Expr::Call(Box::new(callee), Box::new(paren), Box::new(arguments))
+    }
+
+    fn primary(&mut self) -> Expr {
         let current = self.get();
 
         match current.class {
@@ -429,17 +518,14 @@ impl Parser {
                 self.expect_next(TokenVariant::RightParen, "Expected ')' after expression.");
 
                 Expr::Grouping(Box::new(expr))
-            },
+            }
 
-            TokenVariant::Identifier(_) => {
-                Expr::Variable(Box::new(current.clone()))
-            },
+            TokenVariant::Identifier(_) => Expr::Variable(Box::new(current.clone())),
 
             _ => {
                 println!("{:?}", current);
                 panic!("Illegal TokenVariant.");
             }
-
         }
     }
 
